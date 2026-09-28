@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual WebRTC Test</title>
+
+<style>
+body{
+    background:#111827;
+    color:white;
+    font-family:Arial,sans-serif;
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+}
+
+h1{
+    text-align:center;
+}
+
+.panel{
+    background:#1f2937;
+    padding:20px;
+    border-radius:12px;
+    margin-bottom:20px;
+}
+
+textarea{
+    width:100%;
+    height:180px;
+    margin-top:8px;
+    margin-bottom:12px;
+    background:#0f172a;
+    color:white;
+    border:1px solid #374151;
+    border-radius:8px;
+    padding:10px;
+    box-sizing:border-box;
+}
+
+button{
+    padding:12px 20px;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    margin-right:10px;
+    margin-bottom:10px;
+}
+
+.green{
+    background:#16a34a;
+    color:white;
+}
+
+.blue{
+    background:#2563eb;
+    color:white;
+}
+
+.red{
+    background:#dc2626;
+    color:white;
+}
+
+.status{
+    background:#374151;
+    padding:12px;
+    border-radius:8px;
+    margin-bottom:20px;
+}
+
+audio{
+    width:100%;
+}
+</style>
+
+</head>
+<body>
+
+<h1>Manual WebRTC</h1>
+
+<div class="status" id="status">
+Ready
+</div>
+
+<div class="panel">
+
+<h2>1. Create OFFER</h2>
+
+<button
+    id="createOfferBtn"
+    class="green">
+    Create Offer
+</button>
+
+<textarea
+    id="offerOutput"
+    placeholder="Generated OFFER will appear here">
+</textarea>
+
+</div>
+
+<div class="panel">
+
+<h2>2. Paste OFFER and create ANSWER</h2>
+
+<textarea
+    id="offerInput"
+    placeholder="Paste OFFER here">
+</textarea>
+
+<button
+    id="createAnswerBtn"
+    class="blue">
+    Create Answer
+</button>
+
+<textarea
+    id="answerOutput"
+    placeholder="Generated ANSWER will appear here">
+</textarea>
+
+</div>
+
+<div class="panel">
+
+<h2>3. Paste ANSWER</h2>
+
+<textarea
+    id="answerInput"
+    placeholder="Paste ANSWER here">
+</textarea>
+
+<button
+    id="applyAnswerBtn"
+    class="green">
+    Apply Answer
+</button>
+
+</div>
+
+<div class="panel">
+
+<h2>Audio</h2>
+
+<audio
+    id="remoteAudio"
+    autoplay
+    playsinline>
+</audio>
+
+<button
+    id="hangupBtn"
+    class="red">
+    Close Connection
+</button>
+
+</div>
+
+<script>
+
+const statusElement =
+    document.getElementById("status");
+
+const remoteAudio =
+    document.getElementById("remoteAudio");
+
+let peerConnection = null;
+let localStream = null;
+
+function setStatus(text){
+    statusElement.textContent = text;
+}
+
+async function getTurnConfig() {
+
+    const response =
+        await fetch(
+            "https://global.xirsys.net/_turn/channele84722d6",
+            {
+                method: "PUT",
+                headers: {
+                    "Authorization":
+                        "Basic " +
+                        btoa(
+                            "dder:e766daf0-b114-11f1-b68b-9a8070d2bbad"
+                        ),
+
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+                    format: "urls"
+                })
+            }
+        );
+
+    const result =
+        await response.json();
+
+    console.log(
+        "Xirsys response:",
+        result
+    );
+
+    return {
+        iceServers: [
+            result.v.iceServers
+        ]
+    };
+}
+
+async function getMicrophone(){
+
+    if(localStream){
+        return localStream;
+    }
+
+    localStream =
+        await navigator.mediaDevices.getUserMedia({
+            audio:true,
+            video:false
+        });
+
+    return localStream;
+}
+
+async function createPeerConnection() {
+
+    if (peerConnection) {
+        return peerConnection;
+    }
+
+    const rtcConfiguration =
+        await getTurnConfig();
+
+    peerConnection =
+        new RTCPeerConnection(
+            rtcConfiguration
+        );
+
+    const stream =
+        await getMicrophone();
+
+    stream.getTracks().forEach(
+        track => {
+
+            peerConnection.addTrack(
+                track,
+                stream
+            );
+        }
+    );
+
+    peerConnection.ontrack =
+        event => {
+
+            remoteAudio.srcObject =
+                event.streams[0];
+        };
+
+    peerConnection.onicecandidate =
+        event => {
+
+            if (
+                event.candidate
+            ) {
+
+                console.log(
+                    event.candidate.candidate
+                );
+            }
+        };
+
+    peerConnection.onicecandidateerror =
+        event => {
+
+            console.log(
+                "ICE ERROR",
+                event
+            );
+        };
+
+    return peerConnection;
+}
+
+async function waitForIceGatheringComplete(pc){
+
+    if(
+        pc.iceGatheringState ===
+        "complete"
+    ){
+        return;
+    }
+
+    await new Promise(resolve => {
+
+        function checkState(){
+
+            if(
+                pc.iceGatheringState ===
+                "complete"
+            ){
+                pc.removeEventListener(
+                    "icegatheringstatechange",
+                    checkState
+                );
+
+                resolve();
+            }
+        }
+
+        pc.addEventListener(
+            "icegatheringstatechange",
+            checkState
+        );
+    });
+}
+
+document
+.getElementById("createOfferBtn")
+.addEventListener(
+    "click",
+    async () => {
+
+        const pc =
+            await createPeerConnection();
+
+        const offer =
+            await pc.createOffer();
+
+        await pc.setLocalDescription(
+            offer
+        );
+
+        setStatus(
+            "Gathering ICE..."
+        );
+
+        await waitForIceGatheringComplete(
+            pc
+        );
+
+        document
+            .getElementById("offerOutput")
+            .value =
+            JSON.stringify(
+                pc.localDescription
+            );
+
+        setStatus(
+            "OFFER ready"
+        );
+    }
+);
+
+document
+.getElementById("createAnswerBtn")
+.addEventListener(
+    "click",
+    async () => {
+
+        const offer =
+            JSON.parse(
+                document
+                    .getElementById("offerInput")
+                    .value
+            );
+
+        const pc =
+            await createPeerConnection();
+
+        await pc.setRemoteDescription(
+            offer
+        );
+
+        const answer =
+            await pc.createAnswer();
+
+        await pc.setLocalDescription(
+            answer
+        );
+
+        await waitForIceGatheringComplete(
+            pc
+        );
+
+        document
+            .getElementById("answerOutput")
+            .value =
+            JSON.stringify(
+                pc.localDescription
+            );
+
+        setStatus(
+            "ANSWER ready"
+        );
+    }
+);
+
+document
+.getElementById("applyAnswerBtn")
+.addEventListener(
+    "click",
+    async () => {
+
+        const answer =
+            JSON.parse(
+                document
+                    .getElementById("answerInput")
+                    .value
+            );
+
+        await peerConnection
+            .setRemoteDescription(
+                answer
+            );
+
+        setStatus(
+            "Waiting for connection..."
+        );
+    }
+);
+
+document
+.getElementById("hangupBtn")
+.addEventListener(
+    "click",
+    () => {
+
+        if(peerConnection){
+            peerConnection.close();
+            peerConnection = null;
+        }
+
+        if(remoteAudio.srcObject){
+            remoteAudio.srcObject = null;
+        }
+
+        setStatus("Closed");
+    }
+);
+
+</script>
+
+</body>
+</html>
