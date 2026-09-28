@@ -169,6 +169,33 @@ const remoteAudio =
 let peerConnection = null;
 let localStream = null;
 
+const VALID_ROOM_KEY =
+    "Y4lO5kVZWV1fsaIZorT0Yjfh34p5r_p9XjMdsVKFPFo";
+
+const ROOM_KEY =
+    window.location.hash.substring(1);
+
+if (
+    ROOM_KEY !== VALID_ROOM_KEY
+) {
+
+    document.body.innerHTML = `
+        <div style="
+            color:white;
+            text-align:center;
+            margin-top:100px;
+            font-size:24px;
+        ">
+            Access Denied
+        </div>
+    `;
+
+    throw new Error(
+        "Invalid Room Key"
+    );
+}
+    
+    
 function setStatus(text){
     statusElement.textContent = text;
 }
