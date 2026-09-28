@@ -94,6 +94,13 @@ Ready
     Create Offer
 </button>
 
+<button
+    id="copyOfferBtn"
+    class="blue">
+    Copy Offer
+</button>
+
+    
 <textarea
     id="offerOutput"
     placeholder="Generated OFFER will appear here">
@@ -121,6 +128,12 @@ Ready
     placeholder="Generated ANSWER will appear here">
 </textarea>
 
+<button
+    id="copyAnswerBtn"
+    class="blue">
+    Copy Answer
+</button>
+    
 </div>
 
 <div class="panel">
@@ -166,6 +179,17 @@ const statusElement =
 const remoteAudio =
     document.getElementById("remoteAudio");
 
+const copyOfferBtn =
+    document.getElementById(
+        "copyOfferBtn"
+    );
+
+const copyAnswerBtn =
+    document.getElementById(
+        "copyAnswerBtn"
+    );
+
+    
 let peerConnection = null;
 let localStream = null;
 
@@ -574,6 +598,88 @@ document
     }
 );
 
+copyOfferBtn.addEventListener(
+    "click",
+    async () => {
+
+        const text =
+            document
+                .getElementById(
+                    "offerOutput"
+                )
+                .value;
+
+        if (!text) {
+
+            alert(
+                "Offer is empty"
+            );
+
+            return;
+        }
+
+        try {
+
+            await navigator.clipboard
+                .writeText(text);
+
+            setStatus(
+                "Offer copied"
+            );
+
+        } catch(error) {
+
+            console.error(error);
+
+            alert(
+                "Cannot copy Offer"
+            );
+        }
+    }
+);
+
+copyAnswerBtn.addEventListener(
+    "click",
+    async () => {
+
+        const text =
+            document
+                .getElementById(
+                    "answerOutput"
+                )
+                .value;
+
+        if (!text) {
+
+            alert(
+                "Answer is empty"
+            );
+
+            return;
+        }
+
+        try {
+
+            await navigator.clipboard
+                .writeText(text);
+
+            setStatus(
+                "Answer copied"
+            );
+
+        } catch(error) {
+
+            console.error(error);
+
+            alert(
+                "Cannot copy Answer"
+            );
+        }
+    }
+);
+
+
+    
 </script>
 
 </body>
